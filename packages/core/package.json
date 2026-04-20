@@ -2,9 +2,25 @@
   "name": "@freightiq/core",
   "version": "0.1.0",
   "private": true,
-  "exports": { ".": "./src/index.ts" },
+  "exports": {
+    ".": "./src/index.ts",
+    "./hs-classification": "./src/hs-classification/index.ts",
+    "./cbm-estimation": "./src/cbm-estimation/index.ts",
+    "./duty-engine": "./src/duty-engine/index.ts",
+    "./rate-engine": "./src/rate-engine/index.ts",
+    "./landed-cost": "./src/landed-cost/index.ts"
+  },
   "main": "./src/index.ts",
-  "scripts": { "test": "vitest run", "typecheck": "tsc --noEmit" },
+  "scripts": {
+    "test": "vitest run --coverage",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@freightiq/adapters": "workspace:*",
+    "@freightiq/db": "workspace:*",
+    "@freightiq/env": "workspace:*"
+  },
   "devDependencies": {
     "@vitest/coverage-v8": "^1.6.0",
     "typescript": "^5.4.5",

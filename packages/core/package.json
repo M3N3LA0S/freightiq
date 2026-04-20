@@ -1,0 +1,13 @@
+{
+  "name": "@freightiq/core",
+  "version": "0.1.0",
+  "private": true,
+  "exports": { ".": "./src/index.ts" },
+  "main": "./src/index.ts",
+  "scripts": { "test": "vitest run", "typecheck": "tsc --noEmit" },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^1.6.0",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  }
+}

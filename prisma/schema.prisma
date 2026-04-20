@@ -1,0 +1,255 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Org {
+  id               String       @id @default(cuid())
+  clerkOrgId       String       @unique
+  name             String
+  stripeCustomerId String?      @unique
+  plan             Plan         @default(TRIAL)
+  trialEndsAt      DateTime?
+  quoteCredits     Int          @default(50)
+  createdAt        DateTime     @default(now())
+  members          Membership[]
+  quotes           Quote[]
+  shipments        Shipment[]
+  customers        Customer[]
+  addresses        Address[]
+  auditLogs        AuditLog[]
+}
+
+enum Plan {
+  TRIAL
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+model Membership {
+  id          String   @id @default(cuid())
+  orgId       String
+  org         Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  clerkUserId String
+  role        Role     @default(MEMBER)
+  createdAt   DateTime @default(now())
+
+  @@unique([orgId, clerkUserId])
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  orgId     String
+  org       Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name      String
+  email     String?
+  phone     String?
+  vatNumber String?
+  notes     String?
+  quotes    Quote[]
+  createdAt DateTime @default(now())
+
+  @@index([orgId])
+}
+
+model Address {
+  id                String      @id @default(cuid())
+  orgId             String
+  org               Org         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  label             String?
+  line1             String
+  line2             String?
+  city              String
+  postalCode        String
+  countryCode       String
+  latitude          Float?
+  longitude         Float?
+  type              AddressType
+  originQuotes      Quote[]     @relation("origin")
+  destinationQuotes Quote[]     @relation("destination")
+
+  @@index([orgId])
+}
+
+enum AddressType {
+  ORIGIN
+  DESTINATION
+  BOTH
+}
+
+model Quote {
+  id                   String      @id @default(cuid())
+  orgId                String
+  org                  Org         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  customerId           String?
+  customer             Customer?   @relation(fields: [customerId], references: [id])
+  reference            String      @unique
+  status               QuoteStatus @default(DRAFT)
+  productName          String
+  productDescription   String?
+  hsCode               String?
+  hsConfidence         Float?
+  quantity             Int
+  unitOfMeasure        String      @default("pcs")
+  unitWeightKg         Float?
+  unitDimensionsCm     Json?
+  totalWeightKg        Float?
+  totalCBM             Float?
+  declaredValueEUR     Float
+  originAddressId      String?
+  destinationAddressId String?
+  originAddress        Address?    @relation("origin", fields: [originAddressId], references: [id])
+  destinationAddress   Address?    @relation("destination", fields: [destinationAddressId], references: [id])
+  mode                 FreightMode
+  containerType        String?
+  incoterm             String
+  originCharges        Float?
+  freightCost          Float?
+  destinationCharges   Float?
+  insurance            Float?
+  customsDuties        Float?
+  vat                  Float?
+  otherFees            Float?
+  totalLanded          Float?
+  rateSource           String?
+  isMockRate           Boolean     @default(false)
+  ratesValidUntil      DateTime?
+  pdfUrl               String?
+  expiresAt            DateTime?
+  createdById          String
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  shipment             Shipment?
+
+  @@index([orgId, createdAt])
+  @@index([orgId, status])
+}
+
+enum QuoteStatus {
+  DRAFT
+  QUOTED
+  SENT
+  ACCEPTED
+  EXPIRED
+  CANCELLED
+}
+
+enum FreightMode {
+  SEA_FCL
+  SEA_LCL
+  AIR
+  RAIL
+  ROAD
+  MULTIMODAL
+}
+
+model Shipment {
+  id              String         @id @default(cuid())
+  orgId           String
+  org             Org            @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  quoteId         String         @unique
+  quote           Quote          @relation(fields: [quoteId], references: [id])
+  reference       String         @unique
+  status          ShipmentStatus @default(BOOKED)
+  trackingNumber  String?
+  carrierCode     String?
+  vesselImo       String?
+  vesselName      String?
+  flightNumber    String?
+  containerNumber String?
+  blNumber        String?
+  currentLat      Float?
+  currentLng      Float?
+  lastPositionAt  DateTime?
+  etaDestination  DateTime?
+  events          ShipmentEvent[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([orgId])
+}
+
+enum ShipmentStatus {
+  BOOKED
+  IN_TRANSIT
+  ARRIVED
+  CUSTOMS_HOLD
+  DELIVERED
+}
+
+model ShipmentEvent {
+  id          String   @id @default(cuid())
+  shipmentId  String
+  shipment    Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  type        String
+  description String
+  location    String?
+  occurredAt  DateTime
+
+  @@index([shipmentId, occurredAt])
+}
+
+model HsCode {
+  code        String   @id
+  description String
+  parentCode  String?
+  dutyRate    Float?
+  vatRate     Float    @default(19)
+  refreshedAt DateTime @default(now())
+
+  @@index([parentCode])
+}
+
+model ProductDimension {
+  id             String @id @default(cuid())
+  hsCode         String
+  productKeyword String
+  unitWeightKg   Float
+  unitLengthCm   Float
+  unitWidthCm    Float
+  unitHeightCm   Float
+  unitsPerCarton Int
+  cartonCBM      Float
+  source         String
+
+  @@index([hsCode])
+  @@unique([hsCode, productKeyword])
+}
+
+model RateCache {
+  id        String   @id @default(cuid())
+  routeKey  String
+  payload   Json
+  source    String
+  fetchedAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@unique([routeKey, source])
+  @@index([expiresAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  orgId     String
+  org       Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  actorId   String
+  action    String
+  entity    String?
+  entityId  String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([orgId, createdAt])
+}
